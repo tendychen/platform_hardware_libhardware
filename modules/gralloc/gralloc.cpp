@@ -196,6 +196,10 @@ static int gralloc_alloc_buffer(alloc_device_t* dev,
 
 /*****************************************************************************/
 
+static inline size_t ALIGN(size_t x, size_t align) {
+    return (x + align-1) & ~(align-1);
+}
+
 static int gralloc_alloc(alloc_device_t* dev,
         int w, int h, int format, int usage,
         buffer_handle_t* pHandle, int* pStride)
@@ -221,12 +225,23 @@ static int gralloc_alloc(alloc_device_t* dev,
         case HAL_PIXEL_FORMAT_RGBA_4444:
             bpp = 2;
             break;
+        case HAL_PIXEL_FORMAT_YV12:
+            break;
         default:
             return -EINVAL;
     }
-    size_t bpr = (w*bpp + (align-1)) & ~(align-1);
-    size = bpr * h;
-    stride = bpr / bpp;
+
+    if (format == HAL_PIXEL_FORMAT_YV12) {
+        size_t alignedw = ALIGN(w, 16);
+        size_t alignedh = h;
+        size = alignedw * alignedh + (ALIGN(alignedw/2,16) * (alignedh/2))*2;
+        stride = alignedw;
+    }
+    else {
+        size_t bpr = (w*bpp + (align-1)) & ~(align-1);
+        size = bpr * h;
+        stride = bpr / bpp;
+    }
 
     int err;
     if (usage & GRALLOC_USAGE_HW_FB) {
@@ -286,6 +301,7 @@ int gralloc_device_open(const hw_module_t* module, const char* name,
         hw_device_t** device)
 {
     int status = -EINVAL;
+    ALOGE("gralloc_device_open on %s", name);
     if (!strcmp(name, GRALLOC_HARDWARE_GPU0)) {
         gralloc_context_t *dev;
         dev = (gralloc_context_t*)malloc(sizeof(*dev));
