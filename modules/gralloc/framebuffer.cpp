@@ -121,8 +121,39 @@ static int fb_post(struct framebuffer_device_t* dev, buffer_handle_t buffer)
                 0, 0, m->info.xres, m->info.yres,
                 &buffer_vaddr);
 
-        memcpy(fb_vaddr, buffer_vaddr, m->finfo.line_length * m->info.yres);
-        
+       switch (m->orientation) {
+        case 0:
+        case 2: //180°
+            memcpy(fb_vaddr, buffer_vaddr, m->finfo.line_length * m->info.yres);
+           break;
+        case 1: //90°
+            {
+               int pixsize = m->rot_info.bits_per_pixel/8;
+               int buf_ll = m->rot_info.xres * pixsize;
+               int buf_ll_orig = m->rot_info.yres * pixsize;
+
+               for (int l=0;l<m->rot_info.yres;l++) {
+                   for (int c=0;c<m->rot_info.xres;c++) {
+                       memcpy((unsigned char *)fb_vaddr+(buf_ll*l)+(c*pixsize), (unsigned char *)buffer_vaddr+(buf_ll_orig*c)+((m->rot_info.yres-1-l)*pixsize), pixsize);
+                    }
+               }
+            }
+           break;
+        case 3: //270°
+            {
+               int pixsize = m->rot_info.bits_per_pixel/8;
+               int buf_ll = m->rot_info.xres * pixsize;
+               int buf_ll_orig = m->rot_info.yres * pixsize;
+
+               for (int l=0;l<m->rot_info.yres;l++) {
+                   for (int c=0;c<m->rot_info.xres;c++) {
+                       memcpy((unsigned char *)fb_vaddr+(buf_ll*l)+(c*pixsize), (unsigned char *)buffer_vaddr+((m->rot_info.xres-c-1)*buf_ll_orig+l*pixsize), pixsize);
+                    }
+               }
+            }
+           break;
+       }
+
         m->base.unlock(&m->base, buffer); 
         m->base.unlock(&m->base, m->framebuffer); 
     }
@@ -277,6 +308,7 @@ int mapFrameBufferLocked(struct private_module_t* module)
 
     module->numBuffers = info.yres_virtual / info.yres;
     module->bufferMask = 0;
+    module->orientation = 0;
 
     void* vaddr = mmap(0, fbSize, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
     if (vaddr == MAP_FAILED) {
@@ -294,6 +326,50 @@ static int mapFrameBuffer(struct private_module_t* module)
     int err = mapFrameBufferLocked(module);
     pthread_mutex_unlock(&module->lock);
     return err;
+}
+
+static void fb_setOrientation(struct framebuffer_device_t* dev, int orientation)
+{
+    fb_context_t* ctx = (fb_context_t*)dev;
+    private_module_t* m = reinterpret_cast<private_module_t*>(dev->common.module);
+
+    ALOGD("%s setOrientation: orientation=%d\n", __FUNCTION__, orientation);
+
+    if (m->orientation != orientation) {
+        switch (orientation) {
+         case 1:
+         case 3:
+            memcpy(&m->rot_info, &m->info, sizeof(struct fb_var_screeninfo));
+
+            m->rot_info.xres = m->info.yres;
+            m->rot_info.yres = m->info.xres;
+
+            m->rot_info.xres_virtual = m->info.yres_virtual;
+            m->rot_info.yres_virtual = m->info.xres_virtual;
+
+            m->rot_info.width = m->info.height;
+            m->rot_info.height = m->info.width;
+
+            if (ioctl(m->framebuffer->fd, FBIOPUT_VSCREENINFO, &m->rot_info) == -1) {
+                ALOGE("setOrientation: FBIOPUT_VSCREENINFO failed, errno=%d\n", errno);
+            }
+
+            if (ioctl(m->framebuffer->fd, FBIOGET_FSCREENINFO, &m->rot_finfo) == -1) {
+                ALOGE("setOrientation: FBIOGET_FSCREENINFO failed, errno=%d\n", errno);
+            }
+            else
+                ALOGE("setOrientation: new line_length=%d\n", m->rot_finfo.line_length);
+            break;
+         case 0:
+         default:
+            if (ioctl(m->framebuffer->fd, FBIOPUT_VSCREENINFO, &m->info) == -1) {
+                ALOGE("setOrientation: FBIOPUT_VSCREENINFO failed, errno=%d\n", errno);
+            }
+         break;
+        }
+
+        m->orientation = orientation;
+    }
 }
 
 /*****************************************************************************/
@@ -324,6 +400,7 @@ int fb_device_open(hw_module_t const* module, const char* name,
         dev->device.setSwapInterval = fb_setSwapInterval;
         dev->device.post            = fb_post;
         dev->device.setUpdateRect = 0;
+        dev->device.setOrientation = fb_setOrientation;
 
         private_module_t* m = (private_module_t*)module;
         status = mapFrameBuffer(m);
