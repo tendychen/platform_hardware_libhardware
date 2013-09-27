@@ -65,10 +65,27 @@ enum {
     GRALLOC_USAGE_HW_RENDER       = 0x00000200,
     /* buffer will be used by the 2D hardware blitter */
     GRALLOC_USAGE_HW_2D           = 0x00000400,
+    /* buffer will be used by the HWComposer HAL module */
+    GRALLOC_USAGE_HW_COMPOSER           = 0x00000800,
     /* buffer will be used with the framebuffer device */
     GRALLOC_USAGE_HW_FB           = 0x00001000,
     /* mask for the software usage bit-mask */
-    GRALLOC_USAGE_HW_MASK         = 0x00001F00,
+//    GRALLOC_USAGE_HW_MASK         = 0x00001F00,
+
+    /* 4.2*/
+    /* buffer will be used with the HW video encoder */
+    GRALLOC_USAGE_HW_VIDEO_ENCODER      = 0x00010000,
+    /* buffer will be written by the HW camera pipeline */
+    GRALLOC_USAGE_HW_CAMERA_WRITE       = 0x00020000,
+    /* buffer will be read by the HW camera pipeline */
+    GRALLOC_USAGE_HW_CAMERA_READ        = 0x00040000,
+    /* buffer will be used as part of zero-shutter-lag queue */
+    GRALLOC_USAGE_HW_CAMERA_ZSL         = 0x00060000,
+    /* mask for the camera access values */
+    GRALLOC_USAGE_HW_CAMERA_MASK        = 0x00060000,
+    /* mask for the software usage bit-mask */
+    GRALLOC_USAGE_HW_MASK               = 0x00071F00,
+    /* /4.2 */
 
     /* implementation-specific private usage flags */
     GRALLOC_USAGE_PRIVATE_0       = 0x10000000,
