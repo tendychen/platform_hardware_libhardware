@@ -93,6 +93,46 @@ static int hwc_set(hwc_composer_device_1_t *dev,
     return 0;
 }
 
+static int hwc_blank(struct hwc_composer_device_1 *dev, int disp, int blank)
+{
+    return 0;
+}
+
+static int hwc_getDisplayConfigs(struct hwc_composer_device_1 *dev, int disp, uint32_t *configs, size_t *numConfigs)
+{
+    if (*numConfigs == 0)
+        return 0;
+
+    configs[0] = 0;
+    *numConfigs = 1;
+    return 0;
+}
+
+static int hwc_getDisplayAttributes(struct hwc_composer_device_1 *dev, int disp, uint32_t configs, const uint32_t *attributes, int32_t *values)
+{
+    for (int i = 0; attributes[i] != HWC_DISPLAY_NO_ATTRIBUTE; i++) {
+        switch (attributes[i]) {
+         case HWC_DISPLAY_VSYNC_PERIOD:
+             values[i] = 60;
+             break;
+         case HWC_DISPLAY_WIDTH:
+             values[i] = 1024;
+             break;
+         case HWC_DISPLAY_HEIGHT:
+             values[i] = 600;
+             break;
+         case HWC_DISPLAY_DPI_X:
+         case HWC_DISPLAY_DPI_Y:
+             values[i] = 0;
+             break;
+         default:
+             values[i] = -EINVAL;
+        }
+    }
+
+    return 0;
+}
+
 static int hwc_device_close(struct hw_device_t *dev)
 {
     struct hwc_context_t* ctx = (struct hwc_context_t*)dev;
@@ -117,12 +157,15 @@ static int hwc_device_open(const struct hw_module_t* module, const char* name,
 
         /* initialize the procs */
         dev->device.common.tag = HARDWARE_DEVICE_TAG;
-        dev->device.common.version = HWC_DEVICE_API_VERSION_1_0;
+        dev->device.common.version = HWC_DEVICE_API_VERSION_0_1;
         dev->device.common.module = const_cast<hw_module_t*>(module);
         dev->device.common.close = hwc_device_close;
 
         dev->device.prepare = hwc_prepare;
         dev->device.set = hwc_set;
+        dev->device.blank = hwc_blank;
+        dev->device.getDisplayConfigs = hwc_getDisplayConfigs;
+        dev->device.getDisplayAttributes = hwc_getDisplayAttributes;
 
         *device = &dev->device.common;
         status = 0;

@@ -51,6 +51,10 @@ struct private_module_t {
     float xdpi;
     float ydpi;
     float fps;
+
+    int orientation;
+    struct fb_var_screeninfo rot_info;
+    struct fb_fix_screeninfo rot_finfo;
 };
 
 /*****************************************************************************/

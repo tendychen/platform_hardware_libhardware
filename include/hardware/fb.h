@@ -144,6 +144,8 @@ typedef struct framebuffer_device_t {
      */
     int (*enableScreen)(struct framebuffer_device_t* dev, int enable);
 
+    void (*setOrientation)(struct framebuffer_device_t * dev, int orientation); //orientation=0 comme au boot, orientation=1 90°
+
     void* reserved_proc[6];
 
 } framebuffer_device_t;
